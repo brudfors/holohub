@@ -41,12 +41,10 @@ class OpenIGTLinkApp(Application):
 
         self.name = "Endoscopy App"
 
-        self.sample_data_path = os.environ.get(
-            "HOLOHUB_DATA_PATH", "../data/colonoscopy_segmentation"
-        )
+        self.data_path = "/workspace/holohub/data/colonoscopy_segmentation"
 
         self.model_path_map = {
-            "colon_seg": os.path.join(self.sample_data_path, "colon.onnx"),
+            "colon_seg": os.path.join(self.data_path, "colon.onnx"),
         }
 
     def compose(self):
@@ -61,7 +59,7 @@ class OpenIGTLinkApp(Application):
         )
 
         # VideoStreamReplayerOp
-        video_dir = os.path.join(self.sample_data_path)
+        video_dir = os.path.join(self.data_path)
         if not os.path.exists(video_dir):
             raise ValueError(f"Could not find video data: {video_dir=}")
         replayer = VideoStreamReplayerOp(
