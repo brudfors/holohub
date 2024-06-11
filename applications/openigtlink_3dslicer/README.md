@@ -31,7 +31,7 @@ where the image data before Holoscan processing is shown in the left slice view,
 
 ### Machine running 3D Slicer
 
-First, make sure the `OpenIGTLinkIF` module is installed in 3D Slicer using the Extensions Manager.
+First, make sure the [OpenIGTLinkIF module](https://www.slicer.org/wiki/Modules:OpenIGTLinkIF) is installed in 3D Slicer using the [Extensions Manager](https://www.slicer.org/wiki/Documentation/4.3/SlicerApplication/ExtensionsManager).
 
 On the machine running 3D Slicer do:
 1. In 3D Slicer, open the Extensions Manager and install the `SlicerOpenIGTLink` extension.
