@@ -12,8 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 cmake_minimum_required(VERSION 3.20)
-project(openigtlink_3dslicer)
+project(openigtlink_3dslicer LANGUAGES CXX)
 
 find_package(holoscan 1.0 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
@@ -34,30 +35,15 @@ target_link_libraries(openigtlink_3dslicer
   holoscan::ops::openigtlink_rx
 )
 
+# Download the associated dataset if needed
+option(HOLOHUB_DOWNLOAD_DATASETS "Download datasets" ON)
+if(HOLOHUB_DOWNLOAD_DATASETS)
+  add_dependencies(openigtlink_3dslicer ultrasound_segmentation_data)
+endif()
+
 add_custom_target(openigtlink_3dslicer_yaml
   COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/openigtlink_3dslicer.yaml" ${CMAKE_CURRENT_BINARY_DIR}
   DEPENDS "openigtlink_3dslicer.yaml"
   BYPRODUCTS "openigtlink_3dslicer.yaml"
 )
 add_dependencies(openigtlink_3dslicer openigtlink_3dslicer_yaml)
-
-# Default to download datasets
-option(HOLOHUB_DOWNLOAD_DATASETS "Download datasets" ON)
-
-# Download the ultrasound sample data
-if(HOLOHUB_DOWNLOAD_DATASETS)
-  include(holoscan_download_data)
-  holoscan_download_data(ultrasound_segmentation
-    URL https://api.ngc.nvidia.com/v2/resources/nvidia/clara-holoscan/holoscan_ultrasound_sample_data/versions/20230222/zip
-    DOWNLOAD_NAME holoscan_ultrasound_sample_data_20230222.zip
-    URL_MD5 f3551314494dc394aca9c692bbbf65e6
-    DOWNLOAD_DIR ${HOLOHUB_DATA_DIR}
-    GENERATE_GXF_ENTITIES
-    GXF_ENTITIES_HEIGHT 256
-    GXF_ENTITIES_WIDTH 256
-    GXF_ENTITIES_CHANNELS 3
-    GXF_ENTITIES_FRAMERATE 30
-  )
-
-  add_dependencies(openigtlink_3dslicer ultrasound_segmentation_data)
-endif()
