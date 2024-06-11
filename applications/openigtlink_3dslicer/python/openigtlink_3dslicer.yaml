@@ -22,7 +22,7 @@ replayer:  # VideoStreamReplayer
   count: 0 # default: 0 (no frame count restriction)
 
 openigtlink_tx_slicer_img:  # OpenIGTLinkTxOp
-  host_name: "192.168.1.172"
+  host_name: "localhost"
   port: 18945
   device_name: "HoloscanImage"
   input_names:
@@ -77,7 +77,7 @@ segmentation_visualizer:  # Holoviz
     ]
 
 openigtlink_tx_slicer_holoscan:  # OpenIGTLinkRxOp
-  host_name: "192.168.1.172"
+  host_name: "localhost"
   port: 18945
   device_name: "HoloscanImageAndSegmentation"
   input_names:
