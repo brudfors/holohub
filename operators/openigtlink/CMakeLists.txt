@@ -19,6 +19,7 @@ find_package(holoscan 1.0 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
 
 find_package(OpenIGTLink REQUIRED PATHS "/workspace/OpenIGTLink-build")
+find_package(ITK REQUIRED PATHS "/workspace/ITK-build")
 
 add_library(openigtlink_rx SHARED
   openigtlink_rx.cpp
@@ -41,6 +42,7 @@ target_link_libraries(openigtlink_tx
     holoscan::core
     holoscan::ops::holoviz
     OpenIGTLink
+    ${ITK_LIBRARIES}
 )
 target_include_directories(openigtlink_tx INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -17,4 +17,5 @@
 option(HOLOHUB_DOWNLOAD_DATASETS "Download datasets" ON)
 if(HOLOHUB_DOWNLOAD_DATASETS)
   add_dependencies(openigtlink_3dslicer colonoscopy_segmentation_data)
+  add_dependencies(openigtlink_3dslicer volume_rendering_data)
 endif()

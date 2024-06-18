@@ -47,6 +47,13 @@ if(HOLOHUB_DOWNLOAD_DATASETS)
     GXF_ENTITIES_FRAMERATE 30
     ALL
   )
+
+  holoscan_download_data(volume_rendering
+    URL https://api.ngc.nvidia.com/v2/resources/nvidia/clara-holoscan/holoscan_volume_rendering_sample_data/versions/20230628/zip
+    DOWNLOAD_NAME holoscan_volume_rendering_sample_data_20230628.zip
+    URL_MD5 129a15d848b83c8f54988d1ee985edca
+    DOWNLOAD_DIR ${HOLOHUB_DATA_DIR}
+  )
 endif()
 
 add_subdirectory(cpp)

@@ -17,10 +17,11 @@
 
 #include "openigtlink_tx.hpp"
 
-#include "holoscan/operators/holoviz/buffer_info.hpp"
-#include "gxf/multimedia/video.hpp"
+#include <holoscan/operators/holoviz/buffer_info.hpp>
+#include <gxf/multimedia/video.hpp>
 
-#include "igtl_util.h"
+#include <igtl_util.h>
+#include <itkImage.h>
 
 #ifndef CUDA_TRY
 #define CUDA_TRY(stmt)                                                                     \
@@ -113,19 +114,39 @@ void OpenIGTLinkTxOp::compute(InputContext& op_input, OutputContext& op_output,
     bool found = false;
     std::string name = input_names_.get()[i];
 
-    // Check if message is in supported message types
+    // Loop over input messages
     while (message != messages.end()) {
       // Message can be either tensor or video buffer
       auto maybe_input_tensor = message->get<nvidia::gxf::Tensor>(name.c_str());
       auto maybe_input_video = message->get<nvidia::gxf::VideoBuffer>(name.c_str());
+      auto maybe_itk_image = message->get<itk::Image<unsigned char, 3U>>(name.c_str());
 
       // Get buffer info
       BufferInfo buffer_info;
       gxf_result_t result;
+      int depth;
       if (maybe_input_tensor) {
         result = buffer_info.init(maybe_input_tensor.value());
+        depth = 1;
       } else if (maybe_input_video) {
         result = buffer_info.init(maybe_input_video.value());
+        depth = 1;
+      } else if (maybe_itk_image) {
+        HOLOSCAN_LOG_INFO("itk_image");
+        // int bpp = 1;  // we are using unsigned char as pixel type
+        // itk::Image<unsigned char, 3U> itk_image = maybe_itk_image.value()
+        // buffer_info.components = 1U;
+        // itk::ImageType::RegionType itk_region = itk_image->GetLargestPossibleRegion();
+        // itk::ImageType::SizeType itk_size = itk_region.GetSize();
+        // buffer_info.width = static_cast<uint32_t>(itk_size[2]);
+        // buffer_info.height = static_cast<uint32_t>(itk_size[0]);
+        // depth = static_cast<int>(itk_size[1]);
+        // buffer_info.buffer_ptr = itk_image->GetBufferPointer();
+        // buffer_info.bytes_size = static_cast<uint64_t>(
+        //   buffer_info.width * buffer_info.height * depth * bpp
+        // );
+        // buffer_info.element_type = nvidia::gxf::PrimitiveType::kUnsigned8;
+        // buffer_info.storage_type = nvidia::gxf::MemoryStorageType::kHost;
       } else {
         ++message;
         continue;
@@ -144,10 +165,15 @@ void OpenIGTLinkTxOp::compute(InputContext& op_input, OutputContext& op_output,
       time_stamp_->GetTime();
       // Image properties
       int size[] = {
+        static_cast<int>(buffer_info.components),
         static_cast<int>(buffer_info.width),
-        static_cast<int>(buffer_info.height),
-        1
+        static_cast<int>(buffer_info.height)
       };
+      // int size[] = {
+      //   static_cast<int>(buffer_info.width),
+      //   static_cast<int>(buffer_info.height),
+      //   depth
+      // };
       float spacing[]  = {1.0, 1.0, 1.0};
       int endian = igtl::ImageMessage::ENDIAN_BIG;
       if (igtl_is_little_endian()) {
@@ -182,7 +208,8 @@ void OpenIGTLinkTxOp::compute(InputContext& op_input, OutputContext& op_output,
       image_msg->SetEndian(endian);
       image_msg->SetDeviceName(device_name_.get());
       image_msg->SetTimeStamp(time_stamp_);
-      image_msg->SetNumComponents(buffer_info.components);
+      // image_msg->SetNumComponents(buffer_info.components);
+      image_msg->SetNumComponents(1);
       image_msg->AllocateScalars();
       // Copy image data to message
       if (buffer_info.storage_type == nvidia::gxf::MemoryStorageType::kDevice) {

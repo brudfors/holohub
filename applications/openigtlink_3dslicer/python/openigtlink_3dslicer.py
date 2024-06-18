@@ -14,24 +14,112 @@
 # limitations under the License.
 
 import os
+import sys
 
-from holoscan.core import Application
-from holoscan.operators import (
-    FormatConverterOp,
-    HolovizOp,
-    InferenceOp,
-    SegmentationPostprocessorOp,
-    VideoStreamReplayerOp,
-)
-from holoscan.resources import (
-    BlockMemoryPool,
-    CudaStreamPool,
-    MemoryStorageType,
-    UnboundedAllocator,
-)
+import cupy as cp
+import numpy as np
+import itk
 
-from holohub.openigtlink_rx import OpenIGTLinkRxOp
+import holoscan as hs
+from holoscan.core import Application, Operator, OperatorSpec
+from holoscan.gxf import Entity
+from holoscan.resources import UnboundedAllocator
+
 from holohub.openigtlink_tx import OpenIGTLinkTxOp
+
+
+class LoadMhdOp(Operator):
+    """Operator to load mhd file from disk"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def setup(self, spec: OperatorSpec):
+        spec.output("out")
+        spec.param("file_path", "")
+
+    def compute(self, op_input, op_output, context):
+        if not os.path.isfile(self.file_path):
+            print("Error: File {} does not exist or is not a file.".format(self.file_path))
+            sys.exit()
+
+        # Read image
+        # pixel_type = itk.ctype("unsigned char")
+        # itk_image = itk.imread(self.file_path, pixel_type)
+        itk_image = itk.imread(self.file_path)
+
+        # Get the template of the image
+        image_template = itk.template(itk_image)
+        print(f"Image Template: {image_template}")
+
+        # Extract the pixel type and dimension
+        pixel_type = image_template[1][0]
+        dimension = image_template[1][1]
+        print(f"Pixel Type: {pixel_type}")
+        print(f"Dimension: {dimension}")
+
+        # Get the largest possible region of the image
+        region = itk_image.GetLargestPossibleRegion()
+        # Get the size of the region
+        size = region.GetSize()
+        print(f"Size: {size}")
+
+        np_array = itk.GetArrayFromImage(itk_image)
+        cp_array = cp.asarray(np_array)
+
+        # Create output message
+        out_message = Entity(context)
+        # out_message.add(itk_image, "itk_image")
+        out_message.add(hs.as_tensor(cp_array), "itk_image")
+        op_output.emit(out_message, "out")
+
+class PrintVolumeInfoOp(Operator):
+    """Print volume info"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def setup(self, spec: OperatorSpec):
+        spec.input("in")
+
+    def compute(self, op_input, op_output, context):
+        # Get input message
+        in_message = op_input.receive("in")
+
+        # Get as numpy array
+        np_array = cp.asarray(in_message.get("volume")).get()
+
+        # Print
+        print("shape: ", np_array.shape)
+        print("mean: ", np.mean(np_array))
+        print("min: ", np.min(np_array))
+        print("max: ", np.max(np_array))
+
+# class TransformVolumeOp(Operator):
+    # """Transform volume"""
+
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+
+    # def setup(self, spec: OperatorSpec):
+    #     spec.input("in")
+    #     spec.output("out")
+
+    # def compute(self, op_input, op_output, context):
+    #     # Get input message
+    #     in_message = op_input.receive("in")
+
+    #     # # Transpose
+    #     # tensor = cp.asarray(in_message.get("preprocessed")).get()
+    #     # # OBS: Numpy conversion and moveaxis is needed to avoid strange
+    #     # # strides issue when doing inference
+    #     # tensor = np.moveaxis(tensor, 2, 0)[None]
+    #     # tensor = cp.asarray(tensor)
+
+    #     # Create output message
+    #     out_message = Entity(context)
+    #     out_message.add(hs.as_tensor(tensor), "volume")
+    #     op_output.emit(out_message, "out")
 
 
 class OpenIGTLinkApp(Application):
@@ -43,148 +131,41 @@ class OpenIGTLinkApp(Application):
 
         self.data_path = "/workspace/holohub/data/colonoscopy_segmentation"
 
-        self.model_path_map = {
-            "colon_seg": os.path.join(self.data_path, "colon.onnx"),
-        }
-
     def compose(self):
-        cuda_stream_pool = CudaStreamPool(
+        pool = UnboundedAllocator(self, name="pool")
+
+        load_mhd = LoadMhdOp(
             self,
-            name="cuda_stream",
-            dev_id=0,
-            stream_flags=0,
-            stream_priority=0,
-            reserved_size=1,
-            max_size=5,
+            name="load_mhd",
+            pool=pool,
+            **self.kwargs("load_mhd"),
         )
 
-        # VideoStreamReplayerOp
-        video_dir = os.path.join(self.data_path)
-        if not os.path.exists(video_dir):
-            raise ValueError(f"Could not find video data: {video_dir=}")
-        replayer = VideoStreamReplayerOp(
-            self, name="replayer", directory=video_dir, **self.kwargs("replayer")
-        )
+        # transform_volume = TransformVolumeOp(
+        #     self,
+        #     name="transform_volume",
+        #     pool=pool,
+        # )
 
-        # OpenIGTLinkTxOp
-        openigtlink_tx_slicer_img = OpenIGTLinkTxOp(
-            self, name="openigtlink_tx_slicer_img", **self.kwargs("openigtlink_tx_slicer_img")
-        )
-
-        # OpenIGTLinkRxOp
-        openigtlink_rx_slicer_img = OpenIGTLinkRxOp(
+        print_volume_info = PrintVolumeInfoOp(
             self,
-            name="openigtlink_rx_slicer_img",
-            allocator=UnboundedAllocator(self, name="host_allocator"),
-            **self.kwargs("openigtlink_rx_slicer_img"),
+            name="print_volume_info",
+            pool=pool,
         )
 
-        # FormatConverterOp
-        n_channels = 4  # RGBA
-        width_preprocessor = 256
-        height_preprocessor = 256
-        preprocessor_block_size = width_preprocessor * height_preprocessor * n_channels * 1
-        preprocessor_num_blocks = 2
-        uint8_preprocessor = FormatConverterOp(
+        openigtlink_tx = OpenIGTLinkTxOp(
             self,
-            name="uint8_preprocessor",
-            pool=BlockMemoryPool(
-                self,
-                storage_type=MemoryStorageType.DEVICE,
-                block_size=preprocessor_block_size,
-                num_blocks=preprocessor_num_blocks,
-            ),
-            cuda_stream_pool=cuda_stream_pool,
-            **self.kwargs("uint8_preprocessor"),
-        )
-
-        # FormatConverterOp
-        width_preprocessor = 720
-        height_preprocessor = 576
-        preprocessor_block_size = width_preprocessor * height_preprocessor * n_channels * 4
-        preprocessor_num_blocks = 2
-        segmentation_preprocessor = FormatConverterOp(
-            self,
-            name="segmentation_preprocessor",
-            pool=BlockMemoryPool(
-                self,
-                storage_type=MemoryStorageType.DEVICE,
-                block_size=preprocessor_block_size,
-                num_blocks=preprocessor_num_blocks,
-            ),
-            cuda_stream_pool=cuda_stream_pool,
-            **self.kwargs("segmentation_preprocessor"),
-        )
-
-        # InferenceOp
-        n_channels_inference = 2
-        width_inference = 512
-        height_inference = 512
-        bpp_inference = 4
-        inference_block_size = (
-            width_inference * height_inference * n_channels_inference * bpp_inference
-        )
-        inference_num_blocks = 2
-        segmentation_inference = InferenceOp(
-            self,
-            name="segmentation_inference_holoinfer",
-            allocator=BlockMemoryPool(
-                self,
-                storage_type=MemoryStorageType.DEVICE,
-                block_size=inference_block_size,
-                num_blocks=inference_num_blocks,
-            ),
-            model_path_map=self.model_path_map,
-            **self.kwargs("segmentation_inference_holoinfer"),
-        )
-
-        # SegmentationPostprocessorOp
-        postprocessor_block_size = width_inference * height_inference * 1
-        postprocessor_num_blocks = 2
-        segmentation_postprocessor = SegmentationPostprocessorOp(
-            self,
-            name="segmentation_postprocessor",
-            allocator=BlockMemoryPool(
-                self,
-                storage_type=MemoryStorageType.DEVICE,
-                block_size=postprocessor_block_size,
-                num_blocks=postprocessor_num_blocks,
-            ),
-            **self.kwargs("segmentation_postprocessor"),
-        )
-
-        # HolovizOp
-        segmentation_visualizer = HolovizOp(
-            self,
-            name="segmentation_visualizer",
-            cuda_stream_pool=cuda_stream_pool,
-            **self.kwargs("segmentation_visualizer"),
-        )
-
-        # OpenIGTLinkTxOp
-        openigtlink_tx_slicer_holoscan = OpenIGTLinkTxOp(
-            self,
-            name="openigtlink_tx_slicer_holoscan",
-            **self.kwargs("openigtlink_tx_slicer_holoscan"),
+            name="openigtlink_tx",
+            **self.kwargs("openigtlink_tx")
         )
 
         # Build flow
-        self.add_flow(replayer, uint8_preprocessor, {("", "source_video")})
-        self.add_flow(uint8_preprocessor, openigtlink_tx_slicer_img, {("tensor", "receivers")})
-        self.add_flow(
-            openigtlink_rx_slicer_img, segmentation_visualizer, {("out_tensor", "receivers")}
-        )
-        self.add_flow(
-            openigtlink_rx_slicer_img, segmentation_preprocessor, {("out_tensor", "source_video")}
-        )
-        self.add_flow(segmentation_preprocessor, segmentation_inference, {("tensor", "receivers")})
-        self.add_flow(segmentation_inference, segmentation_postprocessor, {("transmitter", "")})
-        self.add_flow(segmentation_postprocessor, segmentation_visualizer, {("", "receivers")})
-        self.add_flow(
-            segmentation_visualizer,
-            openigtlink_tx_slicer_holoscan,
-            {("render_buffer_output", "receivers")},
-        )
+        # self.add_flow(load_mhd, print_volume_info, {("out", "in")})
+
+        self.add_flow(load_mhd, openigtlink_tx, {("out", "receivers")})
+
+        # self.add_flow(load_mhd, transform_volume, {("out", "in")})
+        # self.add_flow(transform_volume, openigtlink_tx, {("out", "receivers")})
 
 
 if __name__ == "__main__":

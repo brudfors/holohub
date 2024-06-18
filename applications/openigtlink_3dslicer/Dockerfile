@@ -39,6 +39,30 @@ RUN cmake -DBUILD_EXAMPLES:BOOL=OFF ../OpenIGTLink
 RUN make
 
 ############################################################
+# Install ITK subset with Python support and IO module
+############################################################
+
+WORKDIR /workspace
+RUN git clone https://github.com/InsightSoftwareConsortium/ITK.git
+WORKDIR /workspace/ITK
+RUN git checkout v5.3.0
+WORKDIR /workspace/ITK-build
+RUN cmake \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DITK_WRAP_PYTHON=ON \
+    -DITKGroup_Core:BOOL=ON \
+    -DModule_ITKIOImageBase=ON \
+    -DModule_ITKReview=OFF \
+    -DModule_ITKDeprecated=OFF \
+    -DModule_ITKBridgeNumPy:BOOL=ON \
+    -DITK_BUILD_DEFAULT_MODULES=OFF \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_TESTING=OFF \
+    ../ITK
+RUN make -j
+RUN make install
+
+############################################################
 # Holohub run setup
 ############################################################
 
