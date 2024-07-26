@@ -44,6 +44,8 @@ segmentation_postprocessor:  # Postprocessor
   data_format: nchw
 
 segmentation_visualizer:  # Holoviz
+  width: 512
+  height: 512
   color_lut: [
     [0.65, 0.81, 0.89, 0.1],
     [0.2, 0.63, 0.17, 0.7],

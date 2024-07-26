@@ -29,7 +29,7 @@
 		"ranking": 1,
 		"dependencies": {},
 		"run": {
-			"command": "python3 <holohub_app_source>/ultrasound_segmentation.py  --data <holohub_data_dir>/ultrasound_segmentation",
+			"command": "python3 <holohub_app_source>/qt_app.py  --data <holohub_data_dir>/ultrasound_segmentation",
 			"workdir": "holohub_bin"
 		}
 	}

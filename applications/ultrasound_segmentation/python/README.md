@@ -49,3 +49,13 @@ Next, run the commands of your choice:
     cd <HOLOHUB_SOURCE_DIR>/applications/ultrasound_segmentation/python
     python3 ultrasound_segmentation.py --source=aja
     ```
+
+## TODO
+
+```bash
+./dev_container build --docker_file ./applications/openigtlink_3dslicer/Dockerfile --img holohub:openigtlink
+
+./dev_container launch --img holohub:qt
+
+./run launch ultrasound_segmentation python
+``

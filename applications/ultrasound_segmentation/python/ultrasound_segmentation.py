@@ -15,8 +15,12 @@
 
 import os
 from argparse import ArgumentParser
+from threading import Event, Thread
 
-from holoscan.core import Application
+import cupy as cp
+import holoscan as hs
+
+from holoscan.core import Application, Operator, OperatorSpec
 from holoscan.operators import (
     AJASourceOp,
     FormatConverterOp,
@@ -26,6 +30,49 @@ from holoscan.operators import (
     VideoStreamReplayerOp,
 )
 from holoscan.resources import BlockMemoryPool, CudaStreamPool, MemoryStorageType
+from holoscan.gxf import Entity
+
+
+class OverlayOp(Operator):
+    """Operator to overlay information on image"""
+
+    def __init__(self, fragment, *args, **kwargs):
+        self.is_running = Event()
+        self.out_tensor = None
+        self.zero = False
+        super().__init__(fragment, *args, **kwargs)
+
+    def setup(self, spec: OperatorSpec):
+        spec.input("in")
+        spec.output("out")
+
+    def stop(self):
+        """
+        """
+        pass
+
+    def overlay(self, cp_tensor):
+        """
+        """
+        # print("Thread started")
+        if self.zero:
+            cp_tensor.fill(0)
+        self.out_tensor = hs.as_tensor(cp_tensor)
+        self.is_running.clear()
+
+    def compute(self, op_input, op_output, context):
+        # Get input message
+        in_message = op_input.receive("in")
+        cp_tensor = cp.from_dlpack(in_message.get("out_tensor"))
+
+        if self.zero:
+            cp_tensor.fill(0)
+        self.out_tensor = hs.as_tensor(cp_tensor)
+
+        # Create output message
+        out_message = Entity(context)
+        out_message.add(self.out_tensor, "out_tensor")
+        op_output.emit(out_message, "out")
 
 
 class UltrasoundApp(Application):
@@ -56,6 +103,14 @@ class UltrasoundApp(Application):
         self.model_path_map = {
             "ultrasound_seg": os.path.join(self.sample_data_path, "us_unet_256x256_nhwc.onnx"),
         }
+
+    def set_overlay_op_parameters(self):
+        """Set parameters for the OverlayOperator."""
+        if self.overlay_op:
+            if self.overlay_op.zero == False:
+                self.overlay_op.zero = True
+            else:
+                self.overlay_op.zero = False
 
     def compose(self):
         n_channels = 4  # RGBA
@@ -156,6 +211,12 @@ class UltrasoundApp(Application):
             **self.kwargs("segmentation_postprocessor"),
         )
 
+        overlay_op = OverlayOp(
+            self,
+            name="OverlayOp"
+        )
+        self.overlay_op = overlay_op
+
         segmentation_visualizer = HolovizOp(
             self,
             name="segmentation_visualizer",
@@ -172,45 +233,14 @@ class UltrasoundApp(Application):
             self.add_flow(source, segmentation_preprocessor)
         self.add_flow(segmentation_preprocessor, segmentation_inference, {("", "receivers")})
         self.add_flow(segmentation_inference, segmentation_postprocessor, {("transmitter", "")})
-        self.add_flow(
-            segmentation_postprocessor,
-            segmentation_visualizer,
-            {("", "receivers")},
-        )
+
+        self.add_flow(segmentation_postprocessor, overlay_op, {("", "in")})
+        self.add_flow(overlay_op, segmentation_visualizer, {("out", "receivers")})
 
 
 if __name__ == "__main__":
-    # Parse args
-    parser = ArgumentParser(description="Ultrasound segmentation demo application.")
-    parser.add_argument(
-        "-s",
-        "--source",
-        choices=["replayer", "aja"],
-        default="replayer",
-        help=(
-            "If 'replayer', replay a prerecorded video. If 'aja' use an AJA "
-            "capture card as the source (default: %(default)s)."
-        ),
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        default="none",
-        help=("Set config path to override the default config file location"),
-    )
-    parser.add_argument(
-        "-d",
-        "--data",
-        default="none",
-        help=("Set the data path"),
-    )
-    args = parser.parse_args()
-
-    if args.config == "none":
-        config_file = os.path.join(os.path.dirname(__file__), "ultrasound_segmentation.yaml")
-    else:
-        config_file = args.config
-
-    app = UltrasoundApp(source=args.source, data=args.data)
+    config_file = os.path.join(os.path.dirname(__file__), "ultrasound_segmentation.yaml")
+    data_file = "/workspace/holohub/data/ultrasound_segmentation"
+    app = UltrasoundApp(source="replayer", data=data_file)
     app.config(config_file)
     app.run()
