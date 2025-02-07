@@ -1,0 +1,160 @@
+%YAML 1.2
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+v4l2_source:
+  device: "/dev/video0"
+
+preprocessor_depth:
+  out_tensor_name: preprocessed_depth
+  out_dtype: "float32"
+  in_dtype: "rgba8888"
+  resize_width: 518
+  resize_height: 518
+  scale_min: 0.0
+  scale_max: 1.0
+
+preprocessor_pose:
+  out_tensor_name: preprocessed_pose
+  out_dtype: "float32"
+  in_dtype: "rgba8888"
+  resize_width: 640
+  resize_height: 640
+  scale_min: 0.0
+  scale_max: 1.0
+
+postprocessor_pose:
+  iou_threshold: 0.5
+  score_threshold: 0.5
+  image_dim: 640
+  image_width: 640
+  image_height: 640
+
+inference:
+  backend: "trt"
+  pre_processor_map:
+    "depth": ["preprocessed_depth"]
+    "pose": ["preprocessed_pose"]
+  inference_map:
+    "depth": ["inference_output_depth"]
+    "pose": ["inference_output_pose"]
+  input_on_cuda: true
+  is_engine_path: false
+
+holoviz_depth:
+  width: 1280
+  height: 480
+
+holoviz_pose:
+  width: 640
+  height: 480
+  tensors:
+    - name: ""
+      type: color
+    - name: boxes
+      type: rectangles
+      line_width: 4
+      color: [0.0, 1.0, 0.0, 1.0]
+      opacity: 0
+    - name: noses
+      type: points
+      color: [1.0, 0.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0
+    - name: left_eyes
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0
+    - name: right_eyes
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0
+    - name: left_ears
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0
+    - name: right_ears
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0
+    - name: left_shoulders
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: right_shoulders
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: left_elbows
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: right_elbows
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: left_wrists
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: right_wrists
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: left_hips
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: right_hips
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: left_knees
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: right_knees
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: left_ankles
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: right_ankles
+      type: points
+      color: [0.0, 1.0, 0.0, 1.0]
+      point_size: 10
+      opacity: 0.5
+    - name: segments
+      type: lines
+      color: [0.0, 1.0, 0.0, 1.0]
+      line_width: 4
+      opacity: 0.5
