@@ -54,12 +54,12 @@ inference:
   is_engine_path: false
 
 holoviz_depth:
-  width: 1280
-  height: 480
+  width: 800
+  height: 600
 
 holoviz_pose:
-  width: 640
-  height: 480
+  width: 800
+  height: 600
   tensors:
     - name: ""
       type: color

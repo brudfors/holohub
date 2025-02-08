@@ -338,7 +338,7 @@ class PostprocessorDepthOp(Operator):
         self.image_dim = 518
         self.mouse_pressed = False
         self.display_modes = ["original", "depth", "side-by-side", "interactive"]
-        self.idx = 2
+        self.idx = 1
         self.current_display_mode = self.display_modes[self.idx]
         # In interactive mode, how much of the original video to show
         self.ratio = 0.5
